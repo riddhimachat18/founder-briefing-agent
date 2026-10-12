@@ -13,12 +13,12 @@ services:
       sizeGB: 1
 
     envVars:
-      # Set GEMINI_API_KEY in the Render dashboard — never commit the value
-      - key: GEMINI_API_KEY
-        sync: false          # Render will prompt you to fill this in the dashboard
+      # Set GROQ_API_KEY in the Render dashboard — never commit the value
+      - key: GROQ_API_KEY
+        sync: false
 
-      - key: GEMINI_MODEL
-        value: gemini-3.5-flash
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-120b
 
       - key: BRIEF_DB_PATH
         value: /data/briefs.db

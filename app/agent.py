@@ -1,8 +1,8 @@
 """
-Agent loop for the Founder Briefing Agent.
+Agent loop — Groq (llama-3.1-8b-instant) via OpenAI-compatible API.
 
-Calls Gemini with function declarations, executes requested tools,
-and returns a validated Brief.  Caps at MAX_ITERATIONS and TOKEN_BUDGET.
+Uses OpenAI function-calling format: tools array, tool_calls in assistant
+messages, and role="tool" responses.  Caps at MAX_ITERATIONS turns.
 """
 
 from __future__ import annotations
@@ -10,30 +10,23 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-import google.generativeai as genai
-import google.generativeai.protos as protos
+from groq import Groq
 from pydantic import ValidationError
 
 from app.schemas import Brief
 from app.security import assert_tool_allowed, wrap_untrusted
-from app.tools import (
-    TOOL_DECLARATIONS,
-    TOOL_DISPATCH,
-    get_run_state,
-    reset_run_state,
-)
+from app.tools import TOOL_DECLARATIONS, TOOL_DISPATCH, get_run_state, reset_run_state
 
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Configuration
+# Config
 # ---------------------------------------------------------------------------
 
 MAX_ITERATIONS = 6
-TOKEN_BUDGET = 32_000
-MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
+MODEL_NAME = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
 SYSTEM_PROMPT = """You are the Founder Briefing Agent.
 
@@ -51,35 +44,30 @@ WORKFLOW:
 Step 1 — Call classify_and_summarise with a JSON array of all items you found.
 Step 2 — For every item where needs_reply=true, call draft_reply.
 Step 3 — For every action item, call add_task.
-Step 4 — Return ONLY the final JSON matching the Brief schema. No markdown fences.
+Step 4 — Return ONLY the final JSON matching the Brief schema below. No markdown fences, no explanation.
 
-BRIEF JSON SCHEMA:
+BRIEF JSON SCHEMA (return exactly this shape):
 {
-  "id": "<uuid>",
+  "id": "<uuid-string>",
   "items": [ ...Item ],
   "drafts": [ ...Draft ],
   "tasks": [ ...Task ],
   "top_3": ["<item_id>", "<item_id>", "<item_id>"],
   "created_at": ""
 }
-top_3 must contain the IDs of the three highest-urgency items (or fewer if <3 items).
+top_3 must contain the IDs of the three highest-urgency items (or fewer if <3 items exist).
 """
 
 
 # ---------------------------------------------------------------------------
-# Gemini initialisation
+# Client factory
 # ---------------------------------------------------------------------------
 
-def _get_model() -> genai.GenerativeModel:
-    api_key = os.getenv("GEMINI_API_KEY")
+def _get_client() -> Groq:
+    api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
-        raise EnvironmentError("GEMINI_API_KEY environment variable not set.")
-    genai.configure(api_key=api_key)
-    return genai.GenerativeModel(
-        model_name=MODEL_NAME,
-        system_instruction=SYSTEM_PROMPT,
-        tools=[TOOL_DECLARATIONS],
-    )
+        raise EnvironmentError("GROQ_API_KEY environment variable not set.")
+    return Groq(api_key=api_key)
 
 
 # ---------------------------------------------------------------------------
@@ -91,62 +79,59 @@ def run_agent(raw_input: str, request_id: str = "req") -> Brief:
 
     # Wrap each block in untrusted delimiters (LLM01)
     blocks = _split_into_blocks(raw_input)
-    wrapped_blocks = [
+    wrapped = [
         wrap_untrusted(block, source_id=f"{request_id}-{i}")
         for i, block in enumerate(blocks)
     ]
-    user_message = "\n\n".join(wrapped_blocks)
+    user_message = "\n\n".join(wrapped)
 
-    model = _get_model()
+    client = _get_client()
 
-    # Use the SDK's ChatSession which manages history correctly
-    chat = model.start_chat(history=[])
-
-    tokens_used = 0
-    current_message: Any = user_message
+    messages: List[Dict[str, Any]] = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user",   "content": user_message},
+    ]
 
     for iteration in range(MAX_ITERATIONS):
-        logger.info("[%s] agent iteration %d", request_id, iteration)
+        logger.info("[%s] iteration %d", request_id, iteration)
 
-        response = chat.send_message(
-            current_message,
-            generation_config=genai.GenerationConfig(
-                max_output_tokens=4096,
-                temperature=0.2,
-            ),
+        response = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=messages,
+            tools=TOOL_DECLARATIONS,
+            tool_choice="auto",
+            temperature=0.2,
+            max_tokens=4096,
         )
 
-        tokens_used += getattr(response.usage_metadata, "total_token_count", 0)
-        if tokens_used > TOKEN_BUDGET:
-            logger.warning("[%s] token budget exceeded at iteration %d", request_id, iteration)
-            break
+        msg = response.choices[0].message
 
-        candidate = response.candidates[0]
-        fn_calls = _extract_function_calls(candidate)
+        # No tool calls → model returned final JSON
+        if not msg.tool_calls:
+            brief = _parse_brief(msg.content or "", request_id)
+            return _merge_run_state(brief)
 
-        if not fn_calls:
-            # No tool calls — model returned final text
-            final_text = _extract_text(candidate)
-            brief = _parse_brief(final_text, request_id)
-            brief = _merge_run_state(brief)
-            return brief
+        # Append assistant turn with tool_calls intact
+        messages.append(msg.to_dict())  # type: ignore[arg-type]
 
-        # Execute tools and build function response parts
-        response_parts: List[protos.Part] = []
-        for fn_call in fn_calls:
-            tool_name = fn_call["name"]
-            tool_args = fn_call["args"]
+        # Execute each tool call
+        for tc in msg.tool_calls:
+            tool_name = tc.function.name
+            try:
+                tool_args = json.loads(tc.function.arguments)
+            except json.JSONDecodeError:
+                tool_args = {}
 
+            # Security: allow-list check (LLM06)
             try:
                 assert_tool_allowed(tool_name)
             except ValueError as exc:
-                logger.error("[%s] BLOCKED tool call: %s — %s", request_id, tool_name, exc)
-                response_parts.append(
-                    protos.Part(function_response=protos.FunctionResponse(
-                        name=tool_name,
-                        response={"error": str(exc)},
-                    ))
-                )
+                logger.error("[%s] BLOCKED tool %s: %s", request_id, tool_name, exc)
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tc.id,
+                    "content": json.dumps({"error": str(exc)}),
+                })
                 continue
 
             logger.info("[%s] tool %s args=%s", request_id, tool_name, list(tool_args.keys()))
@@ -157,27 +142,30 @@ def run_agent(raw_input: str, request_id: str = "req") -> Brief:
                 logger.error("[%s] tool %s raised: %s", request_id, tool_name, exc)
                 result = {"error": str(exc)}
 
-            response_parts.append(
-                protos.Part(function_response=protos.FunctionResponse(
-                    name=tool_name,
-                    response={"result": json.dumps(result, default=str)},
-                ))
-            )
+            messages.append({
+                "role": "tool",
+                "tool_call_id": tc.id,
+                "content": json.dumps(result, default=str),
+            })
 
-        # Feed all function responses back in one turn
-        current_message = response_parts
-
-    # Force final JSON after max iterations
-    logger.info("[%s] forcing final brief after max iterations", request_id)
-    fallback = (
-        "You have now classified all items and created drafts and tasks. "
-        "Return ONLY the final Brief JSON. No explanation, no markdown fences."
+    # Max iterations reached — force final output
+    logger.info("[%s] forcing final brief after %d iterations", request_id, MAX_ITERATIONS)
+    messages.append({
+        "role": "user",
+        "content": (
+            "All items have been classified and drafts/tasks created. "
+            "Return ONLY the final Brief JSON now. No markdown, no explanation."
+        ),
+    })
+    response = client.chat.completions.create(
+        model=MODEL_NAME,
+        messages=messages,
+        temperature=0.2,
+        max_tokens=4096,
     )
-    response = chat.send_message(fallback)
-    final_text = _extract_text(response.candidates[0])
+    final_text = response.choices[0].message.content or ""
     brief = _parse_brief(final_text, request_id, retry=True)
-    brief = _merge_run_state(brief)
-    return brief
+    return _merge_run_state(brief)
 
 
 # ---------------------------------------------------------------------------
@@ -185,32 +173,14 @@ def run_agent(raw_input: str, request_id: str = "req") -> Brief:
 # ---------------------------------------------------------------------------
 
 def _split_into_blocks(text: str) -> List[str]:
-    separators = ["\n---\n", "\n===\n", "\n*** ", "\n----\n"]
-    for sep in separators:
+    for sep in ["\n---\n", "\n===\n", "\n*** ", "\n----\n"]:
         if sep in text:
             return [b.strip() for b in text.split(sep) if b.strip()]
     return [text.strip()]
 
 
-def _extract_function_calls(candidate: Any) -> List[Dict[str, Any]]:
-    calls = []
-    for part in candidate.content.parts:
-        if hasattr(part, "function_call") and part.function_call and part.function_call.name:
-            fc = part.function_call
-            calls.append({"name": fc.name, "args": dict(fc.args)})
-    return calls
-
-
-def _extract_text(candidate: Any) -> str:
-    parts = []
-    for part in candidate.content.parts:
-        if hasattr(part, "text") and part.text:
-            parts.append(part.text)
-    return "\n".join(parts).strip()
-
-
 def _parse_brief(text: str, request_id: str, retry: bool = False) -> Brief:
-    """Extract JSON from model output and validate as Brief (LLM05)."""
+    """Parse and validate model output as a Brief (LLM05)."""
     raw = _extract_json(text)
     try:
         return Brief.model_validate(raw)
@@ -219,7 +189,7 @@ def _parse_brief(text: str, request_id: str, retry: bool = False) -> Brief:
             raise RuntimeError(
                 f"[{request_id}] Brief validation failed after retry: {exc}"
             ) from exc
-        logger.warning("[%s] brief validation failed, retrying parse: %s", request_id, exc)
+        logger.warning("[%s] brief parse failed, applying defaults: %s", request_id, exc)
         if isinstance(raw, dict):
             raw.setdefault("items", [])
             raw.setdefault("drafts", [])
@@ -230,40 +200,36 @@ def _parse_brief(text: str, request_id: str, retry: bool = False) -> Brief:
 
 def _extract_json(text: str) -> Any:
     text = text.strip()
+    # Strip markdown fences
     if text.startswith("```"):
         lines = text.splitlines()
-        text = "\n".join(lines[1:-1] if lines[-1] == "```" else lines[1:])
+        text = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
     try:
         return json.loads(text)
     except json.JSONDecodeError:
-        start = text.find("{")
-        end = text.rfind("}")
+        start, end = text.find("{"), text.rfind("}")
         if start != -1 and end != -1:
             return json.loads(text[start: end + 1])
-        raise ValueError(f"No JSON found in model output: {text[:200]!r}")
+        raise ValueError(f"No JSON in model output: {text[:200]!r}")
 
 
 def _merge_run_state(brief: Brief) -> Brief:
-    """Merge items/drafts/tasks from tool calls that the model omitted from its final JSON."""
+    """Merge any tool-call state the model omitted from its final JSON."""
     state = get_run_state()
 
-    existing_item_ids = {i.id for i in brief.items}
-    for item in state["items"]:
-        if item.id not in existing_item_ids:
-            brief.items.append(item)
+    existing_items  = {i.id for i in brief.items}
+    existing_drafts = {d.id for d in brief.drafts}
+    existing_tasks  = {t.id for t in brief.tasks}
 
-    existing_draft_ids = {d.id for d in brief.drafts}
+    for item  in state["items"]:
+        if item.id  not in existing_items:  brief.items.append(item)
     for draft in state["drafts"]:
-        if draft.id not in existing_draft_ids:
-            brief.drafts.append(draft)
-
-    existing_task_ids = {t.id for t in brief.tasks}
-    for task in state["tasks"]:
-        if task.id not in existing_task_ids:
-            brief.tasks.append(task)
+        if draft.id not in existing_drafts: brief.drafts.append(draft)
+    for task  in state["tasks"]:
+        if task.id  not in existing_tasks:  brief.tasks.append(task)
 
     if len(brief.top_3) < min(3, len(brief.items)):
         sorted_items = sorted(brief.items, key=lambda x: x.urgency, reverse=True)
-        brief.top_3 = [i.id for i in sorted_items[:3]]
+        brief.top_3  = [i.id for i in sorted_items[:3]]
 
     return brief

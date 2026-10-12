@@ -210,81 +210,87 @@ def search_web(query: str) -> Dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Gemini function declarations (used in agent.py)
-# Build with genai.protos so the SDK's proto marshaller is happy.
+# OpenAI-format tool declarations (Groq uses the same schema)
 # ---------------------------------------------------------------------------
 
-import google.generativeai as genai
-
-def _str_prop(description: str) -> "genai.protos.Schema":
-    return genai.protos.Schema(type=genai.protos.Type.STRING, description=description)
-
-
-TOOL_DECLARATIONS = genai.protos.Tool(
-    function_declarations=[
-        genai.protos.FunctionDeclaration(
-            name="classify_and_summarise",
-            description=(
+TOOL_DECLARATIONS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "classify_and_summarise",
+            "description": (
                 "Parse raw text into structured Items. "
                 "Call this first with a JSON array of item objects you have extracted."
             ),
-            parameters=genai.protos.Schema(
-                type=genai.protos.Type.OBJECT,
-                properties={
-                    "text": _str_prop(
-                        "JSON array of item objects with keys: source, sender, subject, "
-                        "summary, urgency (1-5), category, needs_reply (bool)."
-                    ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "text": {
+                        "type": "string",
+                        "description": (
+                            "JSON array of item objects with keys: source, sender, subject, "
+                            "summary, urgency (1-5), category, needs_reply (bool)."
+                        ),
+                    }
                 },
-                required=["text"],
-            ),
-        ),
-        genai.protos.FunctionDeclaration(
-            name="draft_reply",
-            description=(
+                "required": ["text"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "draft_reply",
+            "description": (
                 "Write a reply draft for an item that needs_reply=true. "
                 "Status is always 'pending'; nothing is sent automatically."
             ),
-            parameters=genai.protos.Schema(
-                type=genai.protos.Type.OBJECT,
-                properties={
-                    "item_id": _str_prop("ID of the Item to reply to."),
-                    "intent":  _str_prop("Full plain-text email body to draft."),
-                    "tone":    genai.protos.Schema(
-                        type=genai.protos.Type.STRING,
-                        description="Tone for the reply: formal | friendly | assertive | empathetic.",
-                        enum=["formal", "friendly", "assertive", "empathetic"],
-                    ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "item_id": {"type": "string", "description": "ID of the Item to reply to."},
+                    "intent":  {"type": "string", "description": "Full plain-text email body to draft."},
+                    "tone": {
+                        "type": "string",
+                        "enum": ["formal", "friendly", "assertive", "empathetic"],
+                        "description": "Tone for the reply.",
+                    },
                 },
-                required=["item_id", "intent"],
-            ),
-        ),
-        genai.protos.FunctionDeclaration(
-            name="add_task",
-            description="Record a follow-up task related to an item.",
-            parameters=genai.protos.Schema(
-                type=genai.protos.Type.OBJECT,
-                properties={
-                    "title":   _str_prop("Short action description."),
-                    "due":     _str_prop("ISO date YYYY-MM-DD, optional."),
-                    "item_id": _str_prop("Item ID this task relates to, optional."),
+                "required": ["item_id", "intent"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "add_task",
+            "description": "Record a follow-up task related to an item.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "title":   {"type": "string", "description": "Short action description."},
+                    "due":     {"type": "string", "description": "ISO date YYYY-MM-DD, optional."},
+                    "item_id": {"type": "string", "description": "Item ID this task relates to, optional."},
                 },
-                required=["title"],
-            ),
-        ),
-        genai.protos.FunctionDeclaration(
-            name="search_web",
-            description="Search the web for background context. Use sparingly.",
-            parameters=genai.protos.Schema(
-                type=genai.protos.Type.OBJECT,
-                properties={
-                    "query": _str_prop("Search query string."),
+                "required": ["title"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_web",
+            "description": "Search the web for background context. Use sparingly.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Search query string."},
                 },
-                required=["query"],
-            ),
-        ),
-    ]
-)
+                "required": ["query"],
+            },
+        },
+    },
+]
 
 # Dispatch map used by the agent loop
 TOOL_DISPATCH: Dict[str, Any] = {

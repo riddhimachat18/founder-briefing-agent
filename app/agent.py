@@ -99,7 +99,6 @@ def run_agent(raw_input: str, request_id: str = "req") -> Brief:
             model=MODEL_NAME,
             messages=messages,
             tools=TOOL_DECLARATIONS,
-            tool_choice="auto",
             temperature=0.2,
             max_tokens=4096,
         )
@@ -138,6 +137,10 @@ def run_agent(raw_input: str, request_id: str = "req") -> Brief:
             fn = TOOL_DISPATCH[tool_name]
             try:
                 result = fn(**tool_args)
+            except TypeError as exc:
+                # Model passed wrong arg names — log and continue gracefully
+                logger.warning("[%s] tool %s TypeError (bad args): %s", request_id, tool_name, exc)
+                result = {"error": f"Bad arguments: {exc}"}
             except Exception as exc:
                 logger.error("[%s] tool %s raised: %s", request_id, tool_name, exc)
                 result = {"error": str(exc)}

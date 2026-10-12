@@ -90,7 +90,12 @@ def classify_and_summarise(text: str) -> List[Dict[str, Any]]:
 # Tool: draft_reply
 # ---------------------------------------------------------------------------
 
-def draft_reply(item_id: str, intent: str, tone: str = "formal") -> Dict[str, Any]:
+def draft_reply(item_id: str, intent: str = "", tone: str = "formal",
+                # Aliases the model sometimes uses
+                body: Optional[str] = None,
+                content: Optional[str] = None,
+                text: Optional[str] = None,
+                **kwargs: Any) -> Dict[str, Any]:
     """
     Create a reply draft (status='pending') for the given item.
     The model provides the body text; we sanitise before storing.
@@ -103,6 +108,9 @@ def draft_reply(item_id: str, intent: str, tone: str = "formal") -> Dict[str, An
     Returns:
         Draft dict with status='pending'.
     """
+    # Accept common model aliases for the body field
+    resolved_intent = intent or body or content or text or ""
+
     # Validate tone
     valid_tones = {"formal", "friendly", "assertive", "empathetic"}
     if tone not in valid_tones:
@@ -115,7 +123,7 @@ def draft_reply(item_id: str, intent: str, tone: str = "formal") -> Dict[str, An
             subject = f"Re: {item.subject}" if item.subject else "Re: (your message)"
             break
 
-    safe_body = sanitise_draft_body(intent)
+    safe_body = sanitise_draft_body(resolved_intent)
 
     draft = Draft(
         item_id=item_id,
@@ -132,7 +140,13 @@ def draft_reply(item_id: str, intent: str, tone: str = "formal") -> Dict[str, An
 # Tool: add_task
 # ---------------------------------------------------------------------------
 
-def add_task(title: str, due: Optional[str] = None, item_id: Optional[str] = None) -> Dict[str, Any]:
+def add_task(title: str = "", due: Optional[str] = None, item_id: Optional[str] = None,
+             # Aliases the model sometimes uses
+             description: Optional[str] = None,
+             due_date: Optional[str] = None,
+             task: Optional[str] = None,
+             name: Optional[str] = None,
+             **kwargs: Any) -> Dict[str, Any]:
     """
     Create a follow-up task.
 
@@ -146,20 +160,25 @@ def add_task(title: str, due: Optional[str] = None, item_id: Optional[str] = Non
     """
     from datetime import date
 
-    due_date = None
-    if due:
-        try:
-            due_date = date.fromisoformat(due)
-        except ValueError:
-            due_date = None
+    # Accept common model hallucinations for the title field
+    resolved_title = title or description or task or name or "Follow-up task"
+    # Accept common model hallucinations for the due field
+    resolved_due = due or due_date
 
-    task = Task(
-        title=title[:256],
-        due=due_date,
+    due_obj = None
+    if resolved_due:
+        try:
+            due_obj = date.fromisoformat(str(resolved_due))
+        except ValueError:
+            due_obj = None
+
+    t = Task(
+        title=resolved_title[:256],
+        due=due_obj,
         item_id=item_id,
     )
-    _run_tasks.append(task)
-    return task.model_dump()
+    _run_tasks.append(t)
+    return t.model_dump()
 
 
 # ---------------------------------------------------------------------------

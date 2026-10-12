@@ -32,6 +32,6 @@ services:
 
       # Updated after first deploy with the real Render URL
       - key: ALLOWED_ORIGINS
-        value: https://founder-briefing-agent.onrender.com
+        value: https://founder-briefing-agent.onrender.com,http://localhost:8000
 
     healthCheckPath: /health

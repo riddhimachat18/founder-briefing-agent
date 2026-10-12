@@ -2,7 +2,7 @@
 
 **Tool-calling LLM agent (Gemini, FastAPI) that triages emails and notes into a prioritised brief with human-approved reply drafts. Defences against prompt injection, rate limiting, and a spend cap, with an injection test suite and 10-case eval.**
 
-🚀 **[Live demo →](https://your-cloudrun-url.run.app)** *(deploy and update this link)*
+🚀 **[Live demo → founder-briefing-agent.onrender.com](https://founder-briefing-agent.onrender.com)**
 
 ---
 
@@ -135,23 +135,14 @@ docker run -p 8080:8080 -e GEMINI_API_KEY=<key> founder-brief
 
 ---
 
-## Deploy to Cloud Run
+## Deploy to Render
 
 ```bash
-# Build and push
-gcloud builds submit --tag gcr.io/YOUR_PROJECT/founder-brief
-
-# Deploy
-gcloud run deploy founder-brief \
-  --image gcr.io/YOUR_PROJECT/founder-brief \
-  --platform managed \
-  --region us-central1 \
-  --max-instances 2 \
-  --set-secrets GEMINI_API_KEY=gemini-api-key:latest \
-  --allow-unauthenticated
+# 1. Push to GitHub (already done)
+# 2. Go to render.com → New Web Service → connect riddhimachat18/founder-briefing-agent
+# 3. Add GEMINI_API_KEY in Environment tab
+# 4. Deploy — live at https://founder-briefing-agent.onrender.com
 ```
-
-Set a GCP billing budget alert (Console → Billing → Budgets) before enabling public traffic.
 
 ---
 

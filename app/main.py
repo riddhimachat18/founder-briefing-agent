@@ -26,6 +26,7 @@ from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -70,6 +71,15 @@ app = FastAPI(
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
+
+# Global catch-all — always return JSON so the UI can show the message
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    logger.exception("Unhandled exception on %s: %s", request.url.path, exc)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc) or "Internal server error"},
+    )
 
 # CORS — lock down in prod; allow localhost for local dev
 _ALLOWED_ORIGINS = os.getenv(
@@ -136,10 +146,9 @@ async def run(request: Request, body: RunRequest) -> Brief:
 
     try:
         brief = run_agent(clean_input, request_id=request_id)
-    except EnvironmentError as exc:
+    except Exception as exc:
+        logger.exception("[%s] agent failed: %s", request_id, exc)
         raise HTTPException(status_code=500, detail=str(exc))
-    except RuntimeError as exc:
-        raise HTTPException(status_code=422, detail=str(exc))
 
     saved = save_brief(brief)
 

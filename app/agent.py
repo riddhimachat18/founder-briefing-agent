@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 MAX_ITERATIONS = 6
 TOKEN_BUDGET = 32_000
-MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
 
 SYSTEM_PROMPT = """You are the Founder Briefing Agent.
 

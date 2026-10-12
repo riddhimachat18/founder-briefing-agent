@@ -18,7 +18,7 @@ services:
         sync: false          # Render will prompt you to fill this in the dashboard
 
       - key: GEMINI_MODEL
-        value: gemini-1.5-flash
+        value: gemini-3.5-flash
 
       - key: BRIEF_DB_PATH
         value: /data/briefs.db

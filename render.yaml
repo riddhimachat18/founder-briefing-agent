@@ -1,0 +1,37 @@
+services:
+  - type: web
+    name: founder-briefing-agent
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    region: oregon
+    plan: free
+
+    # Persistent disk for SQLite  (1 GB, free tier allows this)
+    disk:
+      name: briefdata
+      mountPath: /data
+      sizeGB: 1
+
+    envVars:
+      # Set GEMINI_API_KEY in the Render dashboard — never commit the value
+      - key: GEMINI_API_KEY
+        sync: false          # Render will prompt you to fill this in the dashboard
+
+      - key: GEMINI_MODEL
+        value: gemini-1.5-flash
+
+      - key: BRIEF_DB_PATH
+        value: /data/briefs.db
+
+      - key: DAILY_TOKEN_CAP
+        value: "500000"
+
+      # Render injects PORT automatically; uvicorn reads $PORT
+      - key: PORT
+        value: "8080"
+
+      # Updated after first deploy with the real Render URL
+      - key: ALLOWED_ORIGINS
+        value: https://founder-briefing-agent.onrender.com
+
+    healthCheckPath: /health

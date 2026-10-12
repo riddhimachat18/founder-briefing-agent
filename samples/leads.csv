@@ -1,0 +1,21 @@
+first_name,last_name,email,company,title,lead_source,stage,deal_size_usd,last_contact,notes
+Amara,Osei,amara.osei@vertexcloud.io,VertexCloud,Head of Engineering,Referral,Qualified,45000,2026-10-01,Interested in enterprise plan; needs SSO
+Liam,Nakamura,l.nakamura@brightpath.com,BrightPath,CTO,LinkedIn,Demo Scheduled,120000,2026-10-05,Requested custom SLA; decision by Nov
+Sofia,Hernandez,sofia.h@novametrics.co,NovaMetrics,VP Product,Inbound,Proposal Sent,28000,2026-09-28,Waiting on legal review
+Kwame,Asante,k.asante@prismahealth.org,PrismaHealth,Dir of IT,Conference,Nurture,0,2026-08-15,Healthcare compliance questions; re-engage Q1
+Oksana,Petrenko,oksana@stackflow.dev,StackFlow,Founder,Product Hunt,Trial,15000,2026-10-08,Active trial; high engagement; follow up
+Raj,Mehta,raj.mehta@alphafintech.com,AlphaFinTech,COO,Referral,Qualified,200000,2026-10-03,Needs custom pricing; exec sponsor confirmed
+Yuki,Tanaka,yuki.t@clearledger.jp,ClearLedger,CEO,Outbound,Cold,0,2026-07-20,No reply; try LinkedIn
+Fatima,Al-Rashid,f.alrashid@gulfsystems.ae,GulfSystems,IT Manager,Partner,Demo Scheduled,60000,2026-10-07,Wants on-prem option; demo on Oct 15
+Carlos,Reyes,carlos@nexuslogistics.mx,NexusLogistics,VP Tech,Inbound,Proposal Sent,35000,2026-09-25,Price sensitivity; consider 20% discount
+Ingrid,Holm,i.holm@fjordanalytics.no,FjordAnalytics,Data Scientist,Conference,Nurture,0,2026-09-10,Interested in API access; send docs
+Darius,Blackwell,d.blackwell@ironbridgecap.com,IronBridge Capital,Partner,Referral,Closed Won,150000,2026-09-30,Contract signed; onboarding Oct 20
+Mei,Liang,mei.liang@zenithops.cn,ZenithOps,Engineering Lead,LinkedIn,Cold,0,2026-08-01,Initial interest; no follow-up yet
+Oliver,Schmidt,o.schmidt@bauhaus-digital.de,Bauhaus Digital,CTO,Inbound,Demo Scheduled,80000,2026-10-06,GDPR compliance is top concern; loop in legal
+Aisha,Kamara,aisha.k@saheltech.org,SahelTech,Programme Director,Conference,Qualified,22000,2026-10-02,NGO pricing requested; decision maker confirmed
+Tomás,Vega,t.vega@meridianai.co,MeridianAI,Head of Product,Product Hunt,Trial,18000,2026-10-09,Loves the UI; integration with Slack needed
+Nadia,Volkov,nadia.v@moskvadata.ru,MoskvaData,CTO,Outbound,Cold,0,2026-06-15,No response in 4 months; archive
+Brendan,O'Sullivan,b.osullivan@celticsoftware.ie,Celtic Software,MD,Referral,Qualified,55000,2026-10-04,Strong fit; needs case study for FS sector
+Zara,Ahmed,z.ahmed@deltaops.pk,DeltaOps,VP Engineering,LinkedIn,Proposal Sent,40000,2026-09-22,Final legal redline outstanding
+Jin,Park,jin.park@seoulsaas.kr,SeoulSaaS,CPO,Conference,Demo Scheduled,95000,2026-10-08,Competitive eval with two other vendors; needs ROI doc
+Leila,Moradi,l.moradi@persiangrowth.com,PersianGrowth,CEO,Inbound,Nurture,0,2026-09-18,Early stage; check in Q4

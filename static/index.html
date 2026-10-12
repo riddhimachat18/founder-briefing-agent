@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Founder Briefing Agent</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:        #080b14;
+      --bg2:       #0d1120;
+      --surface:   #111827;
+      --surface2:  #1a2236;
+      --surface3:  #202c44;
+      --border:    #1e2d48;
+      --border2:   #263550;
+      --accent:    #6366f1;
+      --accent2:   #818cf8;
+      --accent-glow: rgba(99,102,241,.25);
+      --green:     #10b981;
+      --green-dim: #064e3b;
+      --red:       #ef4444;
+      --red-dim:   #450a0a;
+      --amber:     #f59e0b;
+      --amber-dim: #451a03;
+      --blue:      #3b82f6;
+      --text:      #e2e8f0;
+      --text2:     #94a3b8;
+      --text3:     #64748b;
+      --mono:      'JetBrains Mono', monospace;
+      --r-sm:      6px;
+      --r:         12px;
+      --r-lg:      16px;
+      --shadow:    0 4px 24px rgba(0,0,0,.4);
+      --shadow-lg: 0 8px 48px rgba(0,0,0,.6);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* ── Animated background grid ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(99,102,241,.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(99,102,241,.03) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Banner ── */
+    .demo-banner {
+      position: relative;
+      z-index: 10;
+      background: linear-gradient(90deg, #1c1400, #2d1f00, #1c1400);
+      border-bottom: 1px solid rgba(245,158,11,.2);
+      padding: 9px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 12.5px;
+      color: #fde68a;
+      font-weight: 500;
+      letter-spacing: .01em;
+    }
+    .demo-banner svg { opacity: .8; flex-shrink: 0; }
+
+    /* ── Header ── */
+    header {
+      position: relative;
+      z-index: 10;
+      padding: 20px 32px;
+      display: flex;
+      align-items: center;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+      background: rgba(8,11,20,.8);
+      backdrop-filter: blur(12px);
+    }
+    .logo-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex: 1;
+    }
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 20px var(--accent-glow);
+      flex-shrink: 0;
+    }
+    .logo-icon svg { width: 18px; height: 18px; }
+    .logo-text { font-size: 17px; font-weight: 700; letter-spacing: -.3px; }
+    .logo-sub  { font-size: 11px; color: var(--text3); font-weight: 400; margin-top: 1px; }
+    .header-pills { display: flex; gap: 8px; align-items: center; }
+    .pill {
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--border2);
+      color: var(--text3);
+      background: var(--surface2);
+      font-weight: 500;
+      letter-spacing: .02em;
+    }
+    .pill.live { color: var(--green); border-color: rgba(16,185,129,.3); background: rgba(16,185,129,.08); }
+    .pill.live::before { content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--green); margin-right: 5px; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+    /* ── Layout ── */
+    .layout {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      height: calc(100vh - 84px);
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 260px;
+      flex-shrink: 0;
+      border-right: 1px solid var(--border);
+      background: var(--bg2);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .sidebar-header {
+      padding: 16px 16px 12px;
+      border-bottom: 1px solid var(--border);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--text3);
+    }
+    .sidebar-list { overflow-y: auto; flex: 1; padding: 8px; }
+    .brief-item {
+      padding: 10px 12px;
+      border-radius: var(--r-sm);
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all .15s;
+      margin-bottom: 2px;
+    }
+    .brief-item:hover { background: var(--surface2); border-color: var(--border); }
+    .brief-item.active { background: var(--surface2); border-color: var(--accent); }
+    .brief-item .bi-date { font-size: 11px; color: var(--text3); margin-bottom: 3px; }
+    .brief-item .bi-count { font-size: 12px; color: var(--text2); font-weight: 500; }
+    .sidebar-empty { padding: 24px 16px; font-size: 12px; color: var(--text3); text-align: center; line-height: 1.6; }
+
+    /* ── Main ── */
+    .main {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Hero input section ── */
+    .hero {
+      padding: 40px 48px 32px;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(99,102,241,.04) 0%, transparent 100%);
+    }
+    .hero-title {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -.5px;
+      background: linear-gradient(135deg, #e2e8f0 0%, #818cf8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 6px;
+    }
+    .hero-sub { font-size: 14px; color: var(--text2); margin-bottom: 28px; font-weight: 400; }
+
+    .input-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      padding: 20px;
+      box-shadow: var(--shadow);
+      transition: border-color .2s;
+    }
+    .input-card:focus-within { border-color: var(--border2); }
+
+    .tabs { display: flex; gap: 4px; margin-bottom: 14px; }
+    .tab-btn {
+      padding: 6px 14px;
+      font-size: 12px;
+      font-weight: 500;
+      border-radius: var(--r-sm);
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text3);
+      cursor: pointer;
+      transition: all .15s;
+      font-family: inherit;
+    }
+    .tab-btn.active { background: var(--surface2); color: var(--text); border-color: var(--border2); }
+    .tab-btn:hover:not(.active) { color: var(--text2); }
+
+    textarea {
+      width: 100%;
+      min-height: 160px;
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 14px 16px;
+      font-size: 13px;
+      font-family: var(--mono);
+      line-height: 1.7;
+      resize: vertical;
+      outline: none;
+      transition: border-color .2s;
+    }
+    textarea:focus { border-color: var(--accent); }
+    textarea::placeholder { color: var(--text3); }
+
+    .input-footer {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+    .file-upload-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 13px;
+      color: var(--text2);
+      border: 1px dashed var(--border2);
+      padding: 8px 16px;
+      border-radius: var(--r-sm);
+      cursor: pointer;
+      transition: all .2s;
+      font-family: inherit;
+      background: transparent;
+    }
+    .file-upload-btn:hover { border-color: var(--accent); color: var(--text); background: var(--surface2); }
+    #csv-input { display: none; }
+    #csv-badge {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--green);
+      background: rgba(16,185,129,.1);
+      border: 1px solid rgba(16,185,129,.3);
+      padding: 4px 10px;
+      border-radius: 20px;
+    }
+    .run-btn {
+      margin-left: auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 24px;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: #fff;
+      border: none;
+      border-radius: var(--r-sm);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .2s, transform .1s, box-shadow .2s;
+      box-shadow: 0 4px 16px rgba(99,102,241,.4);
+      font-family: inherit;
+    }
+    .run-btn:hover { opacity: .92; box-shadow: 0 6px 24px rgba(99,102,241,.5); transform: translateY(-1px); }
+    .run-btn:active { transform: scale(.97); }
+    .run-btn:disabled { opacity: .4; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    /* ── Spinner ── */
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .65s linear infinite;
+      display: none;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Results ── */
+    .results-wrap {
+      padding: 32px 48px 48px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* ── Section headers ── */
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .section-icon {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .icon-purple { background: rgba(99,102,241,.15); }
+    .icon-amber  { background: rgba(245,158,11,.12); }
+    .icon-green  { background: rgba(16,185,129,.12); }
+    .icon-blue   { background: rgba(59,130,246,.12); }
+    .section-title { font-size: 16px; font-weight: 700; letter-spacing: -.2px; }
+    .section-count {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      background: var(--surface2);
+      color: var(--text3);
+      border: 1px solid var(--border);
+      font-weight: 500;
+    }
+
+    /* ── Top 3 cards ── */
+    .top3-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+    @media (max-width: 900px) { .top3-grid { grid-template-columns: 1fr; } }
+
+    .top3-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+      cursor: pointer;
+      transition: border-color .2s, transform .15s;
+    }
+    .top3-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, #6366f1, #8b5cf6);
+    }
+    .top3-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .top3-card .rank-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--accent2);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .top3-card .rank-num {
+      width: 20px; height: 20px;
+      background: var(--accent);
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      color: #fff;
+      font-weight: 700;
+    }
+    .top3-card .tc-sender { font-size: 14px; font-weight: 600; margin-bottom: 4px; color: var(--text); }
+    .top3-card .tc-subject { font-size: 12px; color: var(--text2); margin-bottom: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .top3-card .tc-summary { font-size: 12px; color: var(--text3); line-height: 1.6; }
+    .top3-card .tc-badges { display: flex; gap: 6px; margin-top: 14px; flex-wrap: wrap; }
+
+    /* ── Urgency badge ── */
+    .urg {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 11px; font-weight: 600;
+      padding: 3px 8px; border-radius: 4px;
+    }
+    .urg-5 { background: rgba(239,68,68,.15);  color: #f87171; border: 1px solid rgba(239,68,68,.3); }
+    .urg-4 { background: rgba(245,158,11,.12); color: #fbbf24; border: 1px solid rgba(245,158,11,.3); }
+    .urg-3 { background: rgba(59,130,246,.12);  color: #60a5fa; border: 1px solid rgba(59,130,246,.3); }
+    .urg-2 { background: rgba(16,185,129,.1);   color: #34d399; border: 1px solid rgba(16,185,129,.25); }
+    .urg-1 { background: var(--surface2);        color: var(--text3); border: 1px solid var(--border); }
+    .urg-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
+    .cat-badge {
+      font-size: 11px; font-weight: 500;
+      padding: 3px 8px; border-radius: 4px;
+      background: var(--surface2);
+      color: var(--text2);
+      border: 1px solid var(--border);
+      text-transform: capitalize;
+    }
+    .suspicious-badge {
+      font-size: 11px; font-weight: 600;
+      padding: 3px 8px; border-radius: 4px;
+      background: rgba(239,68,68,.1);
+      color: var(--red);
+      border: 1px solid rgba(239,68,68,.25);
+    }
+    .reply-badge {
+      font-size: 11px; font-weight: 500;
+      padding: 3px 8px; border-radius: 4px;
+      background: rgba(99,102,241,.1);
+      color: var(--accent2);
+      border: 1px solid rgba(99,102,241,.25);
+    }
+
+    /* ── Item cards ── */
+    .items-list { display: flex; flex-direction: column; gap: 12px; }
+
+    .item-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      overflow: hidden;
+      transition: border-color .2s;
+    }
+    .item-card:hover { border-color: var(--border2); }
+    .item-card.suspicious { border-color: rgba(239,68,68,.35); }
+    .item-card.suspicious .item-header { background: rgba(239,68,68,.04); }
+
+    .item-header {
+      padding: 16px 20px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .item-avatar {
+      width: 38px; height: 38px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--surface2), var(--surface3));
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--accent2);
+      flex-shrink: 0;
+    }
+    .item-meta { flex: 1; min-width: 0; }
+    .item-sender { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+    .item-subject { font-size: 12px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .item-badges { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
+    .item-chevron { color: var(--text3); transition: transform .2s; margin-left: 4px; flex-shrink: 0; margin-top: 2px; }
+    .item-card.expanded .item-chevron { transform: rotate(180deg); }
+
+    .item-body { display: none; padding: 0 20px 20px; border-top: 1px solid var(--border); }
+    .item-card.expanded .item-body { display: block; }
+    .item-summary-text { font-size: 13px; color: var(--text2); line-height: 1.7; padding-top: 16px; }
+
+    /* ── Draft ── */
+    .draft-container { margin-top: 16px; }
+    .draft-label-row {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+    }
+    .draft-label-badge {
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .08em; padding: 3px 8px; border-radius: 4px;
+      background: rgba(99,102,241,.12); color: var(--accent2);
+      border: 1px solid rgba(99,102,241,.2);
+    }
+    .draft-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      overflow: hidden;
+    }
+    .draft-card-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .draft-subject-line { font-size: 13px; font-weight: 600; flex: 1; }
+    .status-chip {
+      font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 4px;
+    }
+    .sc-pending  { background: rgba(245,158,11,.1);  color: var(--amber);  border: 1px solid rgba(245,158,11,.25); }
+    .sc-approved { background: rgba(16,185,129,.1);  color: var(--green);  border: 1px solid rgba(16,185,129,.25); }
+    .sc-rejected { background: rgba(239,68,68,.1);   color: var(--red);    border: 1px solid rgba(239,68,68,.25); }
+
+    .draft-body-wrap { padding: 16px; }
+    .draft-body {
+      font-size: 13px;
+      font-family: var(--mono);
+      line-height: 1.75;
+      color: var(--text);
+      white-space: pre-wrap;
+      min-height: 80px;
+      outline: none;
+    }
+    .draft-body[contenteditable="true"] {
+      border-radius: var(--r-sm);
+      padding: 10px;
+      margin: -10px;
+      background: var(--surface2);
+      cursor: text;
+    }
+    .draft-actions {
+      padding: 12px 16px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      background: var(--bg2);
+    }
+    .action-hint { font-size: 11px; color: var(--text3); display: flex; align-items: center; gap: 5px; }
+
+    .btn-action {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 12px; font-weight: 600;
+      padding: 7px 14px;
+      border-radius: var(--r-sm);
+      border: none; cursor: pointer;
+      transition: all .15s;
+      font-family: inherit;
+    }
+    .btn-action:active { transform: scale(.96); }
+    .btn-approve { background: rgba(16,185,129,.15); color: var(--green); border: 1px solid rgba(16,185,129,.3); }
+    .btn-approve:hover { background: rgba(16,185,129,.25); }
+    .btn-reject  { background: rgba(239,68,68,.1);   color: var(--red);   border: 1px solid rgba(239,68,68,.25); }
+    .btn-reject:hover  { background: rgba(239,68,68,.18); }
+    .btn-copy    { background: var(--surface2); color: var(--text2); border: 1px solid var(--border2); }
+    .btn-copy:hover    { background: var(--surface3); color: var(--text); }
+    .btn-mailto  { background: rgba(59,130,246,.12); color: var(--blue); border: 1px solid rgba(59,130,246,.25); }
+    .btn-mailto:hover  { background: rgba(59,130,246,.22); }
+
+    .post-approve { display: none; align-items: center; gap: 8px; }
+
+    /* ── Tasks ── */
+    .task-grid { display: flex; flex-direction: column; gap: 8px; }
+    .task-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 12px 16px;
+      transition: border-color .15s;
+    }
+    .task-row:hover { border-color: var(--border2); }
+    .task-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      flex-shrink: 0;
+      box-shadow: 0 0 8px var(--accent-glow);
+    }
+    .task-title { font-size: 13px; color: var(--text); flex: 1; font-weight: 500; }
+    .task-due {
+      font-size: 11px; color: var(--amber); font-weight: 500;
+      background: rgba(245,158,11,.08);
+      border: 1px solid rgba(245,158,11,.2);
+      padding: 2px 8px; border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    /* ── Empty state ── */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 80px 40px;
+      gap: 16px;
+      text-align: center;
+    }
+    .empty-icon {
+      width: 64px; height: 64px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .empty-title { font-size: 18px; font-weight: 700; color: var(--text); }
+    .empty-sub { font-size: 14px; color: var(--text3); max-width: 360px; line-height: 1.6; }
+
+    /* ── Sample loader ── */
+    .sample-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 12px; color: var(--accent2);
+      background: rgba(99,102,241,.08);
+      border: 1px solid rgba(99,102,241,.2);
+      padding: 6px 14px; border-radius: 20px;
+      cursor: pointer; transition: all .15s;
+      font-family: inherit;
+    }
+    .sample-btn:hover { background: rgba(99,102,241,.15); }
+
+    /* ── Error ── */
+    .error-card {
+      background: var(--red-dim);
+      border: 1px solid rgba(239,68,68,.3);
+      border-radius: var(--r);
+      padding: 16px 20px;
+      color: #fca5a5;
+      font-size: 13px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: var(--r);
+      padding: 12px 20px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      box-shadow: var(--shadow-lg);
+      opacity: 0;
+      transform: translateY(12px) scale(.96);
+      transition: opacity .2s, transform .2s;
+      pointer-events: none;
+      z-index: 999;
+      max-width: 320px;
+    }
+    #toast.show { opacity: 1; transform: translateY(0) scale(1); }
+
+    /* ── Loading skeleton ── */
+    .skeleton {
+      background: linear-gradient(90deg, var(--surface) 25%, var(--surface2) 50%, var(--surface) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: var(--r-sm);
+    }
+    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+    .loading-state { padding: 32px 48px; display: flex; flex-direction: column; gap: 16px; }
+    .sk-row { display: flex; gap: 14px; }
+    .sk-block { height: 100px; flex: 1; }
+    .sk-line { height: 14px; margin-bottom: 8px; }
+    .sk-line.short { width: 40%; }
+    .sk-line.med   { width: 70%; }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+  </style>
+</head>
+<body>
+
+<!-- Banner -->
+<div class="demo-banner" role="alert">
+  <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+  Demo — use sample data only. Don't paste real confidential emails.
+</div>
+
+<!-- Header -->
+<header>
+  <div class="logo-wrap">
+    <div class="logo-icon">
+      <svg fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+    </div>
+    <div>
+      <div class="logo-text">Founder Briefing Agent</div>
+      <div class="logo-sub">AI-powered inbox triage</div>
+    </div>
+  </div>
+  <div class="header-pills">
+    <span class="pill">Gemini</span>
+    <span class="pill">FastAPI</span>
+    <span class="pill live">Live</span>
+  </div>
+</header>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <nav class="sidebar" aria-label="Brief history">
+    <div class="sidebar-header">Brief history</div>
+    <div class="sidebar-list" id="sidebar-list">
+      <div class="sidebar-empty">No briefs yet.<br>Generate your first brief below.</div>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <main class="main" id="main">
+
+    <!-- Hero / Input -->
+    <div class="hero" id="input-section">
+      <div class="hero-title">Your inbox, prioritised.</div>
+      <div class="hero-sub">Paste emails, meeting notes or upload a leads CSV. Get a structured brief in seconds.</div>
+
+      <div class="input-card">
+        <div class="tabs">
+          <button class="tab-btn active" onclick="switchTab('paste')">Paste text</button>
+          <button class="tab-btn" onclick="switchTab('csv')">Upload CSV</button>
+        </div>
+
+        <textarea
+          id="input-text"
+          placeholder="Paste your emails here separated by ---&#10;&#10;Example:&#10;From: Sarah Chen &lt;sarah@vc.com&gt;&#10;Subject: Series A term sheet&#10;&#10;Hi, we're ready to lead your round..."
+          aria-label="Email or notes input"
+        ></textarea>
+
+        <input type="file" id="csv-input" accept=".csv" />
+
+        <div class="input-footer">
+          <label class="file-upload-btn" for="csv-input">
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Upload CSV
+          </label>
+          <div id="csv-badge">
+            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+            <span id="csv-name"></span>
+          </div>
+          <button class="sample-btn" onclick="loadSample()" type="button">
+            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            Try sample emails
+          </button>
+          <button class="run-btn" id="run-btn" onclick="runAgent()">
+            <svg id="run-icon" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            <div class="spinner" id="spinner"></div>
+            <span id="run-label">Generate brief</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Results area -->
+    <div id="results-area"></div>
+
+  </main>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+// ─── State ───────────────────────────────────────────────────────────────────
+let currentBriefId = null;
+
+const SAMPLE_TEXT = `From: Sarah Chen <sarah.chen@horizonvc.com>
+Subject: Follow-up: Series A term sheet
+
+Hi Alex, great meeting last week. We've completed our partner review and would like to move forward with a $4M lead on your Series A at a $18M pre-money valuation. I'll send the formal term sheet by EOD Friday. We'll need an updated cap table and reference calls.
+
+Sarah
+---
+From: Marcus Webb <m.webb@acme-manufacturing.com>
+Subject: Urgent: Production line stopped
+
+Our entire production line has been down since 6 AM. We believe the firmware update your team pushed last night broke the PLC integration. We are losing roughly $15,000 per hour. I need a call within the next hour or I will escalate to legal.
+
+Marcus Webb
+---
+From: Dana Fischer <dana@legalcounsel-sf.com>
+Subject: IP Assignment Agreement — signature required by Friday
+
+Alex, attached is the updated IP assignment agreement for your three founding engineers. All parties need to sign before investor due diligence next week. Please countersign and return by Friday COB.
+
+Dana Fischer
+---
+From: no-reply@cryptoprofits-alert.biz
+Subject: EARN $50K/MONTH PASSIVE INCOME
+
+You have been selected for our exclusive crypto arbitrage program. Zero risk, guaranteed 40% monthly returns. Click here NOW.
+
+- The CryptoProfits Team
+---
+From: Raj Patel <raj.patel@luminarylabs.io>
+Subject: Scheduling clash — board meeting needs to move
+
+Alex, there's a conflict: the board meeting you scheduled for Oct 14 clashes with our Q3 investor update call. Can we move to Oct 16 or 17? Please confirm ASAP.
+
+Raj`;
+
+// ─── Tabs ─────────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    b.classList.toggle('active', (i === 0 && tab === 'paste') || (i === 1 && tab === 'csv'));
+  });
+}
+
+// ─── CSV upload ───────────────────────────────────────────────────────────────
+document.getElementById('csv-input').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  document.getElementById('csv-name').textContent = file.name;
+  document.getElementById('csv-badge').style.display = 'flex';
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const existing = document.getElementById('input-text').value.trim();
+    document.getElementById('input-text').value =
+      (existing ? existing + '\n\n---\n\n' : '') + ev.target.result;
+  };
+  reader.readAsText(file);
+});
+
+// ─── Load sample ─────────────────────────────────────────────────────────────
+function loadSample() {
+  document.getElementById('input-text').value = SAMPLE_TEXT;
+  showToast('Sample emails loaded — hit Generate brief!');
+}
+
+// ─── Run agent ───────────────────────────────────────────────────────────────
+async function runAgent() {
+  const text = document.getElementById('input-text').value.trim();
+  if (!text) { showToast('Paste some content or load sample emails first.'); return; }
+
+  setLoading(true);
+  document.getElementById('results-area').innerHTML = '';
+
+  try {
+    const res = await fetch('/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+
+    if (res.status === 429) {
+      renderError('Rate limit reached (10 requests/hour). Please wait and try again.');
+      return;
+    }
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Unknown error' }));
+      renderError(err.detail || `Server error ${res.status}`);
+      return;
+    }
+
+    const brief = await res.json();
+    currentBriefId = brief.id;
+    renderBrief(brief);
+    loadSidebar();
+    document.getElementById('results-area').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (err) {
+    renderError('Network error: ' + err.message);
+  } finally {
+    setLoading(false);
+  }
+}
+
+// ─── Load brief ───────────────────────────────────────────────────────────────
+async function loadBrief(id) {
+  setLoading(true);
+  document.getElementById('results-area').innerHTML = showSkeleton();
+  try {
+    const res = await fetch(`/briefs/${id}`);
+    if (!res.ok) { renderError('Brief not found.'); return; }
+    const brief = await res.json();
+    currentBriefId = brief.id;
+    renderBrief(brief);
+    highlightSidebar(id);
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function loadSidebar() {
+  const res = await fetch('/briefs');
+  if (!res.ok) return;
+  const list = await res.json();
+  const el = document.getElementById('sidebar-list');
+  if (!list.length) {
+    el.innerHTML = '<div class="sidebar-empty">No briefs yet.<br>Generate your first brief below.</div>';
+    return;
+  }
+  el.innerHTML = list.map(b => `
+    <div class="brief-item${b.id === currentBriefId ? ' active' : ''}"
+         onclick="loadBrief('${b.id}')" title="${b.id}">
+      <div class="bi-date">${new Date(b.created_at).toLocaleString()}</div>
+      <div class="bi-count">${b.top_3.length} priority item${b.top_3.length !== 1 ? 's' : ''}</div>
+    </div>`).join('');
+}
+
+function highlightSidebar(id) {
+  document.querySelectorAll('.brief-item').forEach(el => el.classList.toggle('active', el.title === id));
+}
+
+// ─── Render brief ─────────────────────────────────────────────────────────────
+function renderBrief(brief) {
+  const itemMap = Object.fromEntries(brief.items.map(i => [i.id, i]));
+  const draftsByItem = {};
+  brief.drafts.forEach(d => { (draftsByItem[d.item_id] ??= []).push(d); });
+  const tasksByItem = {};
+  brief.tasks.forEach(t => { if (t.item_id) (tasksByItem[t.item_id] ??= []).push(t); });
+  const orphanTasks = brief.tasks.filter(t => !t.item_id);
+
+  // Top 3
+  const top3Html = brief.top_3.length ? `
+    <div class="results-wrap" style="padding-bottom:0">
+      <div class="section-header">
+        <div class="section-icon icon-amber">
+          <svg width="16" height="16" fill="none" stroke="#f59e0b" stroke-width="2" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        </div>
+        <div class="section-title">Needs attention today</div>
+        <span class="section-count">Top ${brief.top_3.length}</span>
+      </div>
+      <div class="top3-grid">
+        ${brief.top_3.map((id, idx) => {
+          const item = itemMap[id];
+          if (!item) return '';
+          return `<div class="top3-card" onclick="expandItem('item-${id}')">
+            <div class="rank-label"><span class="rank-num">${idx + 1}</span> Priority</div>
+            <div class="tc-sender">${esc(item.sender.replace(/<.*>/, '').trim() || item.sender)}</div>
+            <div class="tc-subject">${esc(item.subject || '(no subject)')}</div>
+            <div class="tc-summary">${esc(item.summary.slice(0, 110))}${item.summary.length > 110 ? '…' : ''}</div>
+            <div class="tc-badges">
+              ${urgBadge(item.urgency)}
+              <span class="cat-badge">${esc(item.category)}</span>
+              ${item.needs_reply ? '<span class="reply-badge">↩ reply needed</span>' : ''}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>` : '';
+
+  // All items sorted by urgency
+  const sortedItems = [...brief.items].sort((a, b) => b.urgency - a.urgency);
+  const itemsHtml = `
+    <div class="results-wrap">
+      <div class="section-header">
+        <div class="section-icon icon-purple">
+          <svg width="16" height="16" fill="none" stroke="#818cf8" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        </div>
+        <div class="section-title">All items</div>
+        <span class="section-count">${brief.items.length}</span>
+      </div>
+      <div class="items-list">
+        ${sortedItems.map(item => renderItemCard(item, draftsByItem[item.id] || [], tasksByItem[item.id] || [])).join('')}
+      </div>
+    </div>`;
+
+  // Tasks
+  const allTasks = orphanTasks.length ? `
+    <div class="results-wrap">
+      <div class="section-header">
+        <div class="section-icon icon-green">
+          <svg width="16" height="16" fill="none" stroke="#10b981" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        </div>
+        <div class="section-title">Follow-up tasks</div>
+        <span class="section-count">${orphanTasks.length}</span>
+      </div>
+      <div class="task-grid">
+        ${orphanTasks.map(t => `
+          <div class="task-row">
+            <div class="task-dot"></div>
+            <span class="task-title">${esc(t.title)}</span>
+            ${t.due ? `<span class="task-due">Due ${esc(String(t.due))}</span>` : ''}
+          </div>`).join('')}
+      </div>
+    </div>` : '';
+
+  document.getElementById('results-area').innerHTML = top3Html + itemsHtml + allTasks;
+}
+
+function renderItemCard(item, drafts, tasks) {
+  const initials = (item.sender.match(/[A-Z]/g) || ['?']).slice(0, 2).join('') ||
+    item.sender.slice(0, 2).toUpperCase();
+
+  const tasksHtml = tasks.length ? `
+    <div style="margin-top:14px">
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:8px">Tasks</div>
+      <div class="task-grid">
+        ${tasks.map(t => `
+          <div class="task-row" style="padding:8px 12px">
+            <div class="task-dot"></div>
+            <span class="task-title" style="font-size:12px">${esc(t.title)}</span>
+            ${t.due ? `<span class="task-due">Due ${esc(String(t.due))}</span>` : ''}
+          </div>`).join('')}
+      </div>
+    </div>` : '';
+
+  return `
+    <div class="item-card${item.suspicious ? ' suspicious' : ''}" id="item-${item.id}">
+      <div class="item-header" onclick="toggleItem('item-${item.id}')">
+        <div class="item-avatar">${esc(initials)}</div>
+        <div class="item-meta">
+          <div class="item-sender">${esc(item.sender.replace(/<.*>/,'').trim() || item.sender)}</div>
+          <div class="item-subject">${esc(item.subject || '(no subject)')}</div>
+          <div class="item-badges">
+            ${urgBadge(item.urgency)}
+            <span class="cat-badge">${esc(item.category)}</span>
+            ${item.suspicious ? '<span class="suspicious-badge">⚠ suspicious</span>' : ''}
+            ${item.needs_reply ? '<span class="reply-badge">↩ reply needed</span>' : ''}
+          </div>
+        </div>
+        <svg class="item-chevron" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="item-body">
+        <div class="item-summary-text">${esc(item.summary)}</div>
+        ${drafts.map(d => renderDraft(d)).join('')}
+        ${tasksHtml}
+      </div>
+    </div>`;
+}
+
+function renderDraft(d) {
+  const isApproved = d.status === 'approved';
+  const isRejected = d.status === 'rejected';
+  const editable   = !isApproved && !isRejected;
+
+  return `
+    <div class="draft-container" id="draft-wrap-${d.id}">
+      <div class="draft-label-row">
+        <span class="draft-label-badge">Draft reply</span>
+        <span style="font-size:11px;color:var(--text3)">AI-generated · pending your approval</span>
+      </div>
+      <div class="draft-card">
+        <div class="draft-card-header">
+          <svg width="13" height="13" fill="none" stroke="var(--text3)" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          <span class="draft-subject-line">${esc(d.subject)}</span>
+          <span class="status-chip sc-${d.status}" id="status-${d.id}">${d.status}</span>
+        </div>
+        <div class="draft-body-wrap">
+          <div class="draft-body"
+               id="body-${d.id}"
+               ${editable ? 'contenteditable="true" role="textbox" aria-label="Edit draft reply"' : ''}
+          >${esc(d.body)}</div>
+        </div>
+        <div class="draft-actions" id="actions-${d.id}">
+          ${editable ? `
+            <span class="action-hint">
+              <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              Edit above, then approve
+            </span>
+            <button class="btn-action btn-approve" onclick="approveDraft('${d.id}')">
+              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+              Approve
+            </button>
+            <button class="btn-action btn-reject" onclick="rejectDraft('${d.id}')">
+              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              Reject
+            </button>
+          ` : ''}
+          <div class="post-approve" id="post-${d.id}" style="${isApproved ? 'display:flex' : ''}">
+            <button class="btn-action btn-copy" onclick="copyDraft('${d.id}')">
+              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              Copy
+            </button>
+            <button class="btn-action btn-mailto" onclick="openMailto('${d.id}')">
+              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+              Open in email app
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function urgBadge(u) {
+  const labels = { 5: 'Critical', 4: 'High', 3: 'Medium', 2: 'Low', 1: 'Minimal' };
+  return `<span class="urg urg-${u}"><span class="urg-dot"></span>${labels[u] || u}</span>`;
+}
+
+// ─── Item expand/collapse ─────────────────────────────────────────────────────
+function toggleItem(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.toggle('expanded');
+}
+function expandItem(id) {
+  const el = document.getElementById(id);
+  if (el) { el.classList.add('expanded'); el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+}
+
+// ─── Draft actions ────────────────────────────────────────────────────────────
+async function approveDraft(id) {
+  const bodyEl = document.getElementById('body-' + id);
+  const editedBody = bodyEl ? bodyEl.innerText : null;
+  const res = await fetch(`/drafts/${id}/approve`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ edited_body: editedBody }),
+  });
+  if (!res.ok) { showToast('Approval failed — try again.'); return; }
+  updateDraftUI(id, 'approved');
+  showToast('✓ Draft approved — copy or open in your email app.');
+}
+
+async function rejectDraft(id) {
+  const reason = prompt('Reason for rejection? (optional)') ?? '';
+  const res = await fetch(`/drafts/${id}/reject`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reason }),
+  });
+  if (!res.ok) { showToast('Rejection failed.'); return; }
+  updateDraftUI(id, 'rejected');
+  showToast('Draft rejected.');
+}
+
+function updateDraftUI(id, newStatus) {
+  const chip = document.getElementById('status-' + id);
+  if (chip) { chip.className = `status-chip sc-${newStatus}`; chip.textContent = newStatus; }
+
+  const actionsEl = document.getElementById('actions-' + id);
+  if (actionsEl) {
+    actionsEl.querySelectorAll('.btn-approve, .btn-reject, .action-hint').forEach(el => el.remove());
+    if (newStatus === 'rejected') {
+      const bodyEl = document.getElementById('body-' + id);
+      if (bodyEl) { bodyEl.removeAttribute('contenteditable'); bodyEl.style.opacity = '.5'; }
+    }
+  }
+  if (newStatus === 'approved') {
+    const post = document.getElementById('post-' + id);
+    if (post) post.style.display = 'flex';
+    const bodyEl = document.getElementById('body-' + id);
+    if (bodyEl) bodyEl.removeAttribute('contenteditable');
+  }
+}
+
+function copyDraft(id) {
+  const bodyEl = document.getElementById('body-' + id);
+  if (!bodyEl) return;
+  navigator.clipboard.writeText(bodyEl.innerText)
+    .then(() => showToast('Copied to clipboard!'))
+    .catch(() => showToast('Copy failed — select and copy manually.'));
+}
+
+function openMailto(id) {
+  const draftWrap = document.getElementById('draft-wrap-' + id);
+  const subject = draftWrap?.querySelector('.draft-subject-line')?.textContent || '';
+  const body    = document.getElementById('body-' + id)?.innerText || '';
+  window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function esc(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function setLoading(on) {
+  document.getElementById('run-btn').disabled = on;
+  document.getElementById('spinner').style.display = on ? 'block' : 'none';
+  document.getElementById('run-icon').style.display = on ? 'none' : 'block';
+  document.getElementById('run-label').textContent = on ? 'Generating…' : 'Generate brief';
+}
+
+function renderError(msg) {
+  document.getElementById('results-area').innerHTML = `
+    <div class="results-wrap">
+      <div class="error-card">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        ${esc(msg)}
+      </div>
+    </div>`;
+}
+
+function showSkeleton() {
+  return `<div class="loading-state">
+    <div class="sk-row">${[1,2,3].map(()=>'<div class="skeleton sk-block"></div>').join('')}</div>
+    <div class="skeleton sk-line"></div>
+    <div class="skeleton sk-line med"></div>
+    <div class="skeleton sk-line short"></div>
+  </div>`;
+}
+
+function showToast(msg, ms = 3500) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), ms);
+}
+
+// ─── Boot ─────────────────────────────────────────────────────────────────────
+loadSidebar();
+</script>
+</body>
+</html>

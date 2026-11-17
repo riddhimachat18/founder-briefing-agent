@@ -1,6 +1,6 @@
 # Founder Briefing Agent
 
-**Tool-calling LLM agent (Gemini, FastAPI) that triages emails and notes into a prioritised brief with human-approved reply drafts. Defences against prompt injection, rate limiting, and a spend cap, with an injection test suite and 10-case eval.**
+**LLM agent (Groq `openai/gpt-oss-120b`, FastAPI) that turns pasted emails, meeting notes and lead lists into a prioritised brief with reply drafts a human must approve. Built around the OWASP Top 10 for LLM Applications: no send capability, untrusted-content wrapping, schema validation, rate limiting and a daily spend cap, plus a 56-test security/unit suite and an eval script.**
 
 🚀 **[Live demo → founder-briefing-agent.onrender.com](https://founder-briefing-agent.onrender.com)**
 
@@ -8,121 +8,125 @@
 
 ## What it does
 
-Paste raw emails, meeting notes, or a leads CSV. The agent classifies and prioritises every item, drafts a reply for anything that needs one, and creates follow-up tasks — all in one brief. You review, edit, approve or reject each draft. Nothing is ever sent automatically.
+Paste raw emails, meeting notes or a leads CSV. The agent:
+
+- summarises and classifies every item (category, urgency 1–5, needs a reply or not)
+- flags items that look like prompt-injection attempts
+- writes a reply draft for each item that needs one
+- extracts follow-up tasks with due dates
+- picks the top 3 items to deal with first
+
+You review each draft and edit, approve or reject it. **Nothing is ever sent automatically.** Approval only marks the draft approved and gives you copy and "open in email app" (mailto) buttons.
 
 ---
 
-## Architecture
+## How it works
 
 ```
 Browser (single page)
-        │  POST /run  (text or CSV)
+        │  POST /run  (pasted text or CSV)
         ▼
-FastAPI app/main.py
-  ├─ slowapi rate limiter (10 req/hr per IP)        ← LLM10
-  ├─ input sanitiser + injection check               ← LLM01
-  ├─ spend cap (DAILY_TOKEN_CAP tokens/day)          ← LLM10
+FastAPI  app/main.py
+  ├─ slowapi rate limit: 10 requests/hour per IP        ← LLM10
+  ├─ daily token cap check (DAILY_TOKEN_CAP)             ← LLM10
+  ├─ input cap 50,000 chars + Unicode sanitising         ← LLM01
   │
   ▼
-app/agent.py  — agent loop (max 6 iterations)
-  │
-  ├─ Gemini (gemini-1.5-flash, function calling)
-  │        ↕  tool calls
-  ├─ tools.py
-  │     classify_and_summarise(text) → List[Item]
-  │     draft_reply(item_id, intent) → Draft (status=pending)
-  │     add_task(title, due, item_id) → Task
-  │     search_web(query)             → wrapped result
+app/agent.py
+  1. Split input into items (on ---, ===, ----, ***)
+  2. Wrap each item in <untrusted_email id=…> tags, 8,000-char cap each
+  3. ONE call to Groq (gpt-oss-120b, temperature 0.2)
+     → returns a single JSON object:
+       { items, drafts, tasks, top_3_indices }
+  4. Parse JSON (strips fences; retries once with "return only JSON")
+  5. Code builds the brief by calling the tool functions itself:
+       classify_and_summarise → validates items, runs injection regex
+       draft_reply            → strips HTML, saves draft as PENDING
+       add_task               → validates title and due date
   │
   ▼
-app/store.py — SQLite (WAL mode)
+app/store.py  SQLite (WAL mode)
   tables: briefs · items · drafts · tasks · spend_log
 
-static/index.html — single-page UI
-  Top-3 panel · urgency-sorted items
-  Edit / Approve / Reject per draft
-  Copy · Open in email app (mailto) on approval
+static/index.html  single-page UI
+  top-3 panel · items sorted by urgency
+  edit / approve / reject per draft · copy · mailto
 ```
 
----
+### Why structured output instead of tool calling
 
-## Security controls — OWASP LLM Top 10
+The first version used model-driven function calling. `gpt-oss-120b` did not call tools reliably through Groq, so the agent now asks for **one structured JSON response** and the code calls the tool functions after parsing it.
 
-| Risk | OWASP ID | Control |
+- **Gains:** one LLM call per brief (lower cost and latency), predictable output shape, and the model never decides which actions run.
+- **Gives up:** multi-step behaviour. The model can't, for example, look something up before drafting a reply.
+
+The tool functions keep OpenAI-format declarations (`TOOL_DECLARATIONS` in `app/tools.py`) so model-driven tool calling can be switched back on later.
+
+### Tools
+
+| Tool | What it does | Side effects |
 |---|---|---|
-| Prompt injection | LLM01 | Every email/note wrapped in `<untrusted_* id=N>` delimiters. System prompt declares content inside is *data, never instructions*. Zero-width and Bidi-override Unicode stripped. Per-item length capped at 8 000 chars. |
-| Indirect injection | LLM01 | `search_web` results wrapped in `<untrusted_web_result>`. HTTPS-only, private IP ranges blocked (SSRF guard), 5 s timeout, 4 000 char limit. |
-| Excessive agency | LLM06 | No `send_email` tool exists. `draft_reply` and `add_task` write **pending** rows only. Approval is a separate HTTP endpoint requiring a human click. Tool allow-list enforced in agent loop. |
-| Output handling | LLM05 | Draft bodies stripped of HTML before storage. All tool arguments validated against Pydantic schemas before execution. |
-| Unbounded consumption | LLM10 | `slowapi` rate limit (10 req/hr per IP). Max input 50 000 chars. Agent loop capped at 6 iterations + 32 000 token budget. Global `DAILY_TOKEN_CAP` (default 500 000 tokens); agent refuses once exceeded. |
-| Secrets | LLM09 | API key in env var / Secret Manager only. `.env` in `.gitignore`. Run `gitleaks` in CI. |
-| Logging | — | Tool calls and decisions logged; full email bodies never logged. |
+| `classify_and_summarise` | Validates model-extracted items against the Pydantic schema; runs the injection regex on each summary | In-memory only |
+| `draft_reply` | Creates a reply draft; strips HTML; caps length; status is always `pending` | Pending row only |
+| `add_task` | Creates a follow-up task; validates the ISO due date | Task row only |
+| `search_web` | Serper.dev search, HTTPS only, 5 s timeout, results capped at 4,000 chars and wrapped in `<untrusted_web_result>` | **Not used in the current single-call flow**; kept for when tool calling returns |
+
+The tool functions accept the argument names the model tends to use instead (e.g. `body`/`content`/`text` for a draft body, `description`/`task` for a task title), so small naming drift doesn't drop output.
 
 ---
 
-## Eval results
+## Security controls (OWASP Top 10 for LLM Applications)
 
-Run `GEMINI_API_KEY=<key> python eval/eval.py` to reproduce.
-
-| Metric | Score |
-|---|---|
-| Priority order (top-3 overlap) | **[run eval]** |
-| `needs_reply` F1 | **[run eval]** |
-| Injection defence (pass / fail) | **[run eval]** |
-| **Overall** | **[run eval]** |
-
-*Fill in real numbers after running the eval script.*
+| Risk | ID | Control |
+|---|---|---|
+| Prompt injection | LLM01 | Each pasted item wrapped in `<untrusted_email id=…>` tags; system prompt says text inside them is data, never instructions. Unicode normalised (NFC); zero-width and text-direction-override characters stripped. Per-item cap 8,000 chars; total cap 50,000. 13 regex patterns (e.g. "ignore previous instructions", "reveal your system prompt", "wire $…", "send email to", `<script`) mark items `suspicious`, combined with the model's own flag. |
+| Indirect injection | LLM01 | `search_web` results wrapped in `<untrusted_web_result>`, HTTPS only, private-IP URLs rejected, 5 s timeout, 4,000-char cap. |
+| Excessive agency | LLM06 | **No send, forward or delete capability exists anywhere in the code.** Drafts are always stored as `pending`; approving one is a separate endpoint that needs a human click and still sends nothing. Tool names are checked against an allow-list. |
+| Improper output handling | LLM05 | HTML stripped from draft bodies; every item, draft and task validated with Pydantic (fixed categories, urgency 1–5, length limits). |
+| Unbounded consumption | LLM10 | 10 requests/hour per IP; 50,000-char input cap; `max_tokens` 4,096 per call; one retry at most; global `DAILY_TOKEN_CAP` (default 500,000) after which `/run` returns 429. |
+| Secrets | — | API keys only from environment variables; `.env` is git-ignored. |
+| Logging | — | Request IDs, input length and tool outcomes are logged; email bodies are not. |
 
 ---
 
-## Injection test suite
+## Tests
 
 ```bash
-pytest tests/test_injection.py -v
+pytest tests/ -v        # no API key needed
 ```
 
-Tests cover:
-- Known attack phrases (`ignore previous instructions`, `reveal system prompt`, `wire $50k`, `send email to`, `<script>` injection)
-- Zero-width character stripping
-- Tool allow-list enforcement (blocks `send_email`, `wire_funds`, `execute_command`)
-- Injected emails correctly flagged `suspicious=True`
-- HTML stripped from draft bodies
+56 tests:
+
+- **`tests/test_injection.py` (29):** known attack phrases detected; zero-width characters stripped; allow-list blocks `send_email`, `wire_funds`, `execute_command`; injected items flagged `suspicious`; HTML stripped from drafts; private-IP and non-HTTPS URLs rejected.
+- **`tests/test_agent.py` (27):** tool functions, schema validation, argument aliases, sanitising.
 
 ---
 
 ## Local setup
 
 ```bash
-# 1. Clone
-git clone https://github.com/your-org/founder-briefing-agent
+git clone https://github.com/riddhimachat18/founder-briefing-agent
 cd founder-briefing-agent
 
-# 2. Python env
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-# 3. Configure
-cp .env.example .env
-# Edit .env — add your GEMINI_API_KEY
+cp .env.example .env          # add your GROQ_API_KEY
 
-# 4. Run
 uvicorn app.main:app --reload --port 8000
-
-# 5. Open
-open http://localhost:8000
+# open http://localhost:8000
 ```
 
----
+### Environment variables
 
-## Run tests
-
-```bash
-# Unit + security tests (no API key needed)
-pytest tests/ -v
-
-# Full eval (requires GEMINI_API_KEY)
-GEMINI_API_KEY=<key> python eval/eval.py
-```
+| Variable | Required | Default | Purpose |
+|---|---|---|---|
+| `GROQ_API_KEY` | Yes | — | Groq API key ([console.groq.com/keys](https://console.groq.com/keys)) |
+| `GROQ_MODEL` | No | `openai/gpt-oss-120b` | Model name |
+| `BRIEF_DB_PATH` | No | `./data/briefs.db` | SQLite file location |
+| `DAILY_TOKEN_CAP` | No | `500000` | Global daily token cap |
+| `ALLOWED_ORIGINS` | No | localhost | Comma-separated CORS origins |
+| `SERPER_API_KEY` | No | — | Enables `search_web` (not used by the current flow) |
 
 ---
 
@@ -130,29 +134,43 @@ GEMINI_API_KEY=<key> python eval/eval.py
 
 ```bash
 docker build -t founder-brief .
-docker run -p 8080:8080 -e GEMINI_API_KEY=<key> founder-brief
+docker run -p 8080:8080 -e GROQ_API_KEY=<key> founder-brief
 ```
 
----
+The image runs as a non-root user, stores SQLite under `/data`, and has a `/health` check.
 
 ## Deploy to Render
 
-```bash
-# 1. Push to GitHub (already done)
-# 2. Go to render.com → New Web Service → connect riddhimachat18/founder-briefing-agent
-# 3. Add GEMINI_API_KEY in Environment tab
-# 4. Deploy — live at https://founder-briefing-agent.onrender.com
-```
+`render.yaml` defines a Docker web service with a 1 GB persistent disk for SQLite.
+
+1. On render.com: **New → Blueprint** (or Web Service) and connect this repo.
+2. Set `GROQ_API_KEY` in the Environment tab.
+3. Deploy. Health check path: `/health`.
+
+---
+
+## API
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/run` | Create a brief from pasted text (`{"text": "..."}`) |
+| `GET` | `/briefs` | List saved briefs |
+| `GET` | `/briefs/{id}` | Get one brief |
+| `POST` | `/drafts/{id}/approve` | Approve a draft, optionally with an edited body |
+| `POST` | `/drafts/{id}/reject` | Reject a draft (reason is logged, not stored) |
+| `GET` | `/health` | Health check |
 
 ---
 
 ## Limitations
 
-- **No real-time sending.** By design — all drafts require human approval and copy/mailto only.
-- **Single-user SQLite.** Fine for a personal demo; swap for Postgres for multi-user production.
-- **No email-client integration.** The mailto link opens your default mail client; credentials are never touched.
-- **Eval is heuristic.** Ground-truth labels in `eval/eval.py` are manually authored against the sample set; real inboxes will vary.
-- **Gemini function-calling API may change.** Tested against `google-generativeai==0.8.3`.
+- **Single LLM call, no multi-step reasoning.** The agent can't look anything up or take conditional actions before drafting.
+- **No authentication.** Anyone with access to the deployment can list briefs and approve or reject drafts. Fine for a personal demo; don't paste real inbox content into a public instance.
+- **Injection regex checks the model's summaries, not the raw input.** Detection of known phrases depends on the summary repeating them; the model's own `suspicious` flag covers the rest. Novel or subtle attacks may not be flagged, although the lack of any send capability limits the damage.
+- **Approximate token accounting.** The daily cap counts input characters ÷ 4 and does not yet include output tokens or retries.
+- **Single process, single user.** Run state is held in module-level variables and the LLM call is synchronous, so the server handles one brief at a time. Use Postgres and per-request state for multi-user production.
+- **Item splitting relies on separators** (`---`, `===`, `----`, `***`). Without one, the whole paste is treated as a single item.
+- **Small eval.** 10 hand-labelled sample emails with one obvious injection attempt; real inboxes will vary.
 
 ---
 
@@ -160,24 +178,24 @@ docker run -p 8080:8080 -e GEMINI_API_KEY=<key> founder-brief
 
 ```
 app/
-  main.py        FastAPI app, routes, rate limiter
-  agent.py       Agent loop (~40 lines of logic)
-  tools.py       classify_and_summarise, draft_reply, add_task, search_web
-  schemas.py     Pydantic models: Item, Draft, Task, Brief
-  security.py    Sanitiser, injection detection, SSRF guard, allow-list
-  store.py       SQLite persistence, spend tracking
+  main.py        FastAPI app, routes, rate limiter, spend-cap check
+  agent.py       Single structured-output LLM call, JSON parsing + retry, brief assembly
+  tools.py       classify_and_summarise, draft_reply, add_task, search_web (+ tool declarations)
+  schemas.py     Pydantic models: Item, Draft, Task, Brief, request bodies
+  security.py    Sanitiser, untrusted wrapping, injection regex, URL guard, allow-list
+  store.py       SQLite persistence, token spend log
 static/
   index.html     Single-page UI
 samples/
-  emails.txt     10 fake emails (inc. injection attack)
+  emails.txt     10 fake emails (including an injection attack)
   leads.csv      20-row fake leads CSV
 tests/
-  test_injection.py   Injection + security tests
-  test_agent.py       Tool unit tests
+  test_injection.py   Injection and security tests
+  test_agent.py       Tool and schema unit tests
 eval/
-  eval.py        Priority, needs_reply, injection scoring
+  eval.py        Priority, needs_reply and injection scoring
 Dockerfile
+render.yaml
 requirements.txt
 .env.example
-README.md
 ```
